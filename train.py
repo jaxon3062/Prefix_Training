@@ -6,15 +6,15 @@ import torch
 import json
 
 # Configuration
-model_name = "gpt2"  # Replace with model name
-dataset_path = "path_to_your_custom_math500_dataset.json"  # Replace with file path
+model_name = "Qwen/Qwen2.5-Math-1.5B"  # Replace with model name
+dataset_path = "tgt_Qwen2.5-Math-1.5B_math500_data_length_500_max512_n_250.json"  # Replace with file path
 output_dir = "./sft-model"  # Set output dir
 apply_custom_prompt = True  # Set to False to use default prompt format
 use_structure_tuning = False  # Set to True to enable structure tuning
 
 # Define prompt templates
 custom_prompt_templates = {
-    "default": "{question} Please provide the initial step towards resolving the question. This step may serve as a foundation but might not encompass the entire solution.",
+    "default": "{question} Please provide the initial step towards resolving the question. This step may serve as a foundation but might not encompass the entire solution.\n",
 }
 
 # Load tokenizer and model
