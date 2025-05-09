@@ -7,10 +7,11 @@ import json
 
 # Configuration
 model_name = "Qwen/Qwen2.5-Math-1.5B"  # Replace with model name
-dataset_path = "tgt_Qwen2.5-Math-1.5B_math500_data_length_500_max512_n_250.json"  # Replace with file path
+dataset_path = "tgt_DeepSeek-R1-Distill-Qwen-1.5B_math500_data_length_500_max512_n_2.json"  # Replace with file path
 output_dir = "./sft-model"  # Set output dir
 apply_custom_prompt = True  # Set to False to use default prompt format
 use_structure_tuning = False  # Set to True to enable structure tuning
+use_mps = torch.backends.mps.is_available()  # Detect if MPS backend is available
 
 # Define prompt templates
 custom_prompt_templates = {
@@ -22,9 +23,17 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+device = torch.device(
+    "mps" if use_mps else ("cuda" if torch.cuda.is_available() else "cpu")
+)
+torch_dtype = (
+    torch.float32
+    if use_mps
+    else (torch.float16 if torch.cuda.is_available() else torch.float32)
+)
+
+model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch_dtype).to(
+    device
 )
 
 # Load and preprocess dataset
@@ -67,7 +76,7 @@ tokenized_dataset = dataset.map(tokenize_function, batched=True)
 # Training arguments
 training_args = TrainingArguments(
     output_dir=output_dir,
-    per_device_train_batch_size=4,
+    per_device_train_batch_size=1 if use_mps else 4,
     num_train_epochs=3,
     logging_dir=f"{output_dir}/logs",
     logging_steps=10,
@@ -80,7 +89,7 @@ training_args = TrainingArguments(
 trainer = SFTTrainer(
     model=model,
     train_dataset=tokenized_dataset,
-    tokenizer=tokenizer,
+    processing_class=tokenizer,
     args=training_args,
 )
 
