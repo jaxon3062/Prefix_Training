@@ -11,10 +11,13 @@ dataset_path = "tgt_DeepSeek-R1-Distill-Qwen-1.5B_math500_data_length_500_max512
 output_dir = "./sft-model"  # Set output dir
 apply_custom_prompt = True  # Set to False to use default prompt format
 use_structure_tuning = False  # Set to True to enable structure tuning
+task_template_ratio = 0.1  # Ratio of data that will use the "task" template
+prefix_length = 20  # Length of the prefix tuning strings (in characters)
 
 # Define prompt templates
 custom_prompt_templates = {
-    "default": "{question} Please provide the initial step towards resolving the question. This step may serve as a foundation but might not encompass the entire solution.\n",
+    "default": "{question}\n",
+    "task": "{question} Please provide the initial step towards resolving the question. This step may serve as a foundation but might not encompass the entire solution.\n",
 }
 
 # Load tokenizer and model
@@ -22,14 +25,12 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
-device = torch.device(
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
-torch_dtype = (
-    torch.float16 if torch.cuda.is_available() else torch.float32
-)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
-model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch_dtype).to(device)
+model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch_dtype).to(
+    device
+)
 
 # Load and preprocess dataset
 raw_data = []
@@ -41,22 +42,28 @@ with open(dataset_path, "r") as f:
 flattened_data = []
 for item in raw_data:
     question = item["problem"]
-    q_type = item.get("mode", "default")
     for response in item["response"]:
-        if apply_custom_prompt:
-            if use_structure_tuning:
-                template = custom_prompt_templates.get(
-                    q_type, custom_prompt_templates["default"]
-                )
-            else:
-                template = custom_prompt_templates["default"]
-            prompt_text = template.format(question=question, response=response)
-        else:
-            prompt_text = f"Question: {question}\nAnswer: {response}"
-        flattened_data.append({"text": prompt_text})
+        flattened_data.append({"question": question, "response": response})
+
+# Split the dataset into two subsets based on the ratio
+split_index = int(len(flattened_data) * task_template_ratio)
+subset_task = flattened_data[:split_index]
+subset_default = flattened_data[split_index:]
+
+# Apply corresponding prompt templates
+processed_data = []
+for item in subset_task:
+    prompt_text = custom_prompt_templates["task"].format(
+        question=item["question"][:prefix_length]
+    )
+    processed_data.append({"text": prompt_text})
+
+for item in subset_default:
+    prompt_text = custom_prompt_templates["default"].format(question=item["question"])
+    processed_data.append({"text": prompt_text})
 
 # Convert to Hugging Face Dataset
-dataset = Dataset.from_list(flattened_data)
+dataset = Dataset.from_list(processed_data)
 
 
 # Preprocess dataset
