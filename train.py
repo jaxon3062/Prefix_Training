@@ -10,7 +10,7 @@ model_name = "Qwen/Qwen2.5-Math-1.5B"  # Replace with model name
 dataset_path = "tgt_DeepSeek-R1-Distill-Qwen-1.5B_math500_data_length_500_max512_n_2.json"  # Replace with file path
 output_dir = "./sft-model"  # Set output dir
 apply_custom_prompt = True  # Set to False to use default prompt format
-use_structure_tuning = False  # Set to True to enable structure tuning
+use_structure_tuning = True  # Set to True to enable structure tuning
 task_template_ratio = 0.1  # Ratio of data that will use the "task" template
 prefix_length = 20  # Length of the prefix tuning strings (in characters)
 
@@ -45,25 +45,30 @@ for item in raw_data:
     for response in item["response"]:
         flattened_data.append({"question": question, "response": response})
 
-# Split the dataset into two subsets based on the ratio
-split_index = int(len(flattened_data) * task_template_ratio)
-subset_task = flattened_data[:split_index]
-subset_default = flattened_data[split_index:]
+if use_structure_tuning:
+    # Split the dataset into two subsets based on the ratio
+    split_index = int(len(flattened_data) * task_template_ratio)
+    subset_task = flattened_data[:split_index]
+    subset_default = flattened_data[split_index:]
 
-# Apply corresponding prompt templates
-processed_data = []
-for item in subset_task:
-    prompt_text = custom_prompt_templates["task"].format(
-        question=item["question"][:prefix_length]
-    )
-    processed_data.append({"text": prompt_text})
+    # Apply corresponding prompt templates
+    processed_data = []
+    for item in subset_task:
+        prompt_text = custom_prompt_templates["task"].format(
+            question=item["question"][:prefix_length]
+        )
+        processed_data.append({"text": prompt_text})
 
-for item in subset_default:
-    prompt_text = custom_prompt_templates["default"].format(question=item["question"])
-    processed_data.append({"text": prompt_text})
+    for item in subset_default:
+        prompt_text = custom_prompt_templates["default"].format(
+            question=item["question"]
+        )
+        processed_data.append({"text": prompt_text})
 
-# Convert to Hugging Face Dataset
-dataset = Dataset.from_list(processed_data)
+    # Convert to Hugging Face Dataset
+    dataset = Dataset.from_list(processed_data)
+else:
+    dataet = Dataset.from_list(flattened_data)
 
 
 # Preprocess dataset
