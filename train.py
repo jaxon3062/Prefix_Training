@@ -89,7 +89,7 @@ training_args = TrainingArguments(
     logging_steps=10,
     save_steps=50,
     save_total_limit=2,
-    fp16=torch.cuda.is_available(),
+    # fp16=torch.cuda.is_available(),
 )
 
 # Initialize SFTTrainer
