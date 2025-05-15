@@ -68,7 +68,7 @@ if use_structure_tuning:
     # Convert to Hugging Face Dataset
     dataset = Dataset.from_list(processed_data)
 else:
-    dataet = Dataset.from_list(flattened_data)
+    dataset = Dataset.from_list(flattened_data)
 
 
 # Preprocess dataset
